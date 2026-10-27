@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=NetFolders
+GenericName=Dossiers réseau
+Comment=Monter et gérer les dossiers partagés d'un NAS (SMB/CIFS)
+Exec=netfolders
+Icon=folder-remote
+Terminal=false
+Type=Application
+Categories=GTK;GNOME;Utility;System;
+Keywords=NAS;SMB;CIFS;Samba;réseau;partage;montage;dossiers;
+StartupNotify=true
