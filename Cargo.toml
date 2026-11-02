@@ -1,9 +1,10 @@
 [package]
 name = "netfolders"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2021"
-description = "Assistant graphique pour monter un dossier réseau (NAS SMB/CIFS) sous Fedora"
+description = "Mount and manage NAS network folders (SMB/CIFS) on Linux, with a GTK4/libadwaita interface"
 license = "MIT"
+repository = "https://github.com/loganxwolverine/NetFolders"
 
 [dependencies]
 gtk = { package = "gtk4", version = "0.9", features = ["v4_12"] }

@@ -1,0 +1,40 @@
+name: Bug report / Signaler un problème
+description: Something does not work as expected / Quelque chose ne fonctionne pas
+labels: [bug]
+body:
+  - type: dropdown
+    id: distro
+    attributes:
+      label: Distribution
+      options:
+        - Fedora
+        - Bazzite / Fedora Atomic
+        - Debian
+        - Ubuntu
+        - Linux Mint
+        - Arch Linux
+        - CachyOS
+        - SteamOS
+        - Other / Autre
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: NetFolders version
+      placeholder: "0.3.0"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened? / Que s'est-il passé ?
+      description: Steps, and the exact error message if any. / Les étapes, et le message d'erreur exact s'il y en a un.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (optional / facultatif)
+      description: "Output of / Résultat de : journalctl -b | grep -i cifs"
+      render: shell

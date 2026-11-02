@@ -109,7 +109,7 @@ pub fn explain(output: &str) -> String {
         || has("protocol negotiation failed")
     {
         "Le NAS a refusé la connexion. Il utilise peut-être l'ancien protocole SMB1, \
-         désactivé par défaut sous Fedora pour des raisons de sécurité : activez \
+         désactivé par défaut sous Linux pour des raisons de sécurité : activez \
          SMB2 ou SMB3 dans les réglages du NAS."
             .into()
     } else {

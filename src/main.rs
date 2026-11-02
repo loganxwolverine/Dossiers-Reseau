@@ -1,4 +1,5 @@
 mod bookmarks;
+mod system;
 mod mounts;
 mod privileged;
 mod smb;

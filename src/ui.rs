@@ -10,6 +10,7 @@ use crate::mounts::{self, NetMount};
 use crate::privileged::{self, CredChoice, Request};
 use crate::smb::{self, Credentials, Share};
 use crate::bookmarks;
+use crate::system::Distro;
 
 pub const APP_ID: &str = "io.github.netfolders.NetFolders";
 const STEPS: u8 = 4;
@@ -137,8 +138,10 @@ fn normalize_host(s: &str) -> String {
     s.trim_start_matches(['/', '\\']).trim_end_matches(['/', '\\']).to_string()
 }
 
+/// Dossier personnel, chemin réel (sur Bazzite, /home/x → /var/home/x).
 fn home_dir() -> PathBuf {
-    glib::home_dir()
+    let h = glib::home_dir();
+    std::fs::canonicalize(&h).unwrap_or(h)
 }
 
 fn valid_folder_name(name: &str) -> bool {
@@ -177,7 +180,7 @@ fn missing_packages() -> Vec<String> {
     };
     let mut m = Vec::new();
     if !in_path("smbclient") {
-        m.push("samba-client".to_string());
+        m.push(Distro::detect().smbclient_package().to_string());
     }
     if !in_path("mount.cifs") {
         m.push("cifs-utils".to_string());
@@ -246,12 +249,30 @@ impl Ui {
         if missing.is_empty() {
             return;
         }
+        let distro = Distro::detect();
+        let list = missing.iter().map(|p| format!("• {p}")).collect::<Vec<_>>().join("\n");
+        if !distro.can_install_packages() {
+            let extra = if distro == Distro::SteamOs {
+                "\n\nSur SteamOS, relancez le script install.sh fourni avec NetFolders : \
+                 il sait les ajouter. Ils peuvent disparaître après une mise à jour de SteamOS ; \
+                 il suffit alors de relancer install.sh."
+            } else {
+                "\n\nInstallez-les avec le gestionnaire de paquets de votre distribution, puis relancez NetFolders."
+            };
+            self.alert("Composants manquants", &format!("NetFolders a besoin des paquets suivants :\n\n{list}{extra}"));
+            return;
+        }
         let d = adw::AlertDialog::new(
             Some("Composants manquants"),
             Some(&format!(
                 "Pour fonctionner, l'application a besoin des paquets suivants :\n\n{}\n\n\
-                 Voulez-vous les installer maintenant ? Votre mot de passe vous sera demandé.",
-                missing.iter().map(|p| format!("• {p}")).collect::<Vec<_>>().join("\n")
+                 Voulez-vous les installer maintenant ? Votre mot de passe vous sera demandé.{}",
+                list,
+                if distro.needs_reboot_after_install() {
+                    "\n\nSur ce système (Bazzite / Fedora Atomic), un redémarrage sera nécessaire ensuite."
+                } else {
+                    ""
+                }
             )),
         );
         d.add_response("quit", "Quitter");
@@ -271,6 +292,16 @@ impl Ui {
             run_bg(
                 move || privileged::run(&Request::InstallPackages { packages: pkgs }),
                 move |r| match r {
+                    Ok(_) if distro.needs_reboot_after_install() => {
+                        let d = adw::AlertDialog::new(
+                            Some("Redémarrage nécessaire"),
+                            Some("Les composants ont été ajoutés au système. Redémarrez l'ordinateur, puis relancez NetFolders."),
+                        );
+                        d.add_response("ok", "Fermer NetFolders");
+                        let w = ui2.window.clone();
+                        d.connect_response(None, move |_, _| w.close());
+                        d.present(Some(&ui2.window));
+                    }
                     Ok(_) => ui2.toast("Composants installés."),
                     Err(e) => ui2.alert("Installation impossible", &e),
                 },
@@ -359,7 +390,7 @@ impl Ui {
 
         let open = gtk::Button::builder()
             .icon_name("folder-open-symbolic")
-            .tooltip_text("Ouvrir dans Fichiers")
+            .tooltip_text("Ouvrir dans le gestionnaire de fichiers")
             .valign(gtk::Align::Center)
             .css_classes(["flat"])
             .build();
@@ -524,7 +555,7 @@ impl Ui {
             .active(m.persistent)
             .build();
         let bookmark = adw::SwitchRow::builder()
-            .title("Raccourci dans Fichiers")
+            .title("Raccourci dans le gestionnaire de fichiers")
             .active(bookmarks::contains(&old_dir))
             .build();
         let options = adw::PreferencesGroup::builder()
@@ -867,8 +898,8 @@ impl Ui {
             .active(true)
             .build();
         let bookmark = adw::SwitchRow::builder()
-            .title("Ajouter un raccourci dans Fichiers")
-            .subtitle("Le dossier apparaîtra dans la barre latérale du gestionnaire de fichiers.")
+            .title("Ajouter un raccourci dans le gestionnaire de fichiers")
+            .subtitle("Le dossier apparaîtra dans la barre latérale de Fichiers (GNOME) ou de Dolphin (KDE).")
             .active(true)
             .build();
         let mut note = String::from("Votre mot de passe administrateur vous sera demandé pour effectuer le montage.");

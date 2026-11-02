@@ -1,0 +1,42 @@
+# Maintainer: loganxwolverine <loganxwolverine@users.noreply.github.com>
+# Paquet Arch Linux, CachyOS, EndeavourOS, Manjaro…
+pkgname=netfolders
+pkgver=0.3.0
+pkgrel=1
+pkgdesc="Mount and manage NAS network folders (SMB/CIFS) with a GTK4/libadwaita interface"
+arch=('x86_64')
+url="https://github.com/loganxwolverine/NetFolders"
+license=('MIT')
+depends=('gtk4' 'libadwaita' 'smbclient' 'cifs-utils' 'polkit')
+makedepends=('cargo')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+prepare() {
+  cd "NetFolders-$pkgver"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+  cd "NetFolders-$pkgver"
+  export RUSTUP_TOOLCHAIN=stable
+  export CARGO_TARGET_DIR=target
+  cargo build --frozen --release
+}
+
+check() {
+  cd "NetFolders-$pkgver"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo test --frozen
+}
+
+package() {
+  cd "NetFolders-$pkgver"
+  local id=io.github.netfolders.NetFolders
+  install -Dm755 target/release/netfolders "$pkgdir/usr/bin/netfolders"
+  install -Dm644 "data/$id.desktop" "$pkgdir/usr/share/applications/$id.desktop"
+  sed 's#/usr/local/bin/netfolders#/usr/bin/netfolders#' "data/$id.policy" \
+    | install -Dm644 /dev/stdin "$pkgdir/usr/share/polkit-1/actions/$id.policy"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

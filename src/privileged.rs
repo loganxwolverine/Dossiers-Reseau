@@ -13,6 +13,7 @@ use std::process::{Command, Stdio};
 use serde::{Deserialize, Serialize};
 
 use crate::mounts;
+use crate::system::Distro;
 use crate::smb::Credentials;
 
 const CRED_DIR: &str = "/etc/samba/credentials";
@@ -149,6 +150,8 @@ fn no_control_chars(s: &str, what: &str) -> Result<(), String> {
 }
 
 fn check_dir(dir: &Path) -> Result<String, String> {
+    // Sur Bazzite, /home est un lien vers /var/home : systemd exige le vrai chemin dans fstab.
+    let dir = &fs::canonicalize(dir).map_err(|_| format!("Le dossier {} n'existe pas.", dir.display()))?;
     let s = dir.to_str().ok_or("Chemin non UTF-8.")?;
     no_control_chars(s, "Le chemin local")?;
     if !dir.is_absolute() || !dir.is_dir() {
@@ -202,6 +205,7 @@ fn do_mount(source: &str, dir: &Path, uid: u32, gid: u32, creds: &Credentials, p
         return Err("Adresse de dossier réseau invalide.".into());
     }
     let dir_s = check_dir(dir)?;
+    let dir = Path::new(&dir_s);
     // pkexec indique quel utilisateur a demandé l'opération : on ne monte que pour lui.
     if let Some(caller) = std::env::var("PKEXEC_UID").ok().and_then(|v| v.parse::<u32>().ok()) {
         if caller != uid {
@@ -458,17 +462,34 @@ fn do_modify(
 }
 
 fn install_packages(packages: &[String]) -> Result<String, String> {
-    const ALLOWED: [&str; 2] = ["samba-client", "cifs-utils"];
+    const ALLOWED: [&str; 4] = ["samba-client", "smbclient", "cifs-utils", "pkexec"];
     if packages.is_empty() || packages.iter().any(|p| !ALLOWED.contains(&p.as_str())) {
         return Err("Paquet non autorisé.".into());
     }
-    let out = Command::new("dnf")
-        .args(["install", "-y"])
+    let installed = "Paquets installés.";
+    let (cmd, args, done) = match Distro::detect() {
+        Distro::Fedora => ("dnf", vec!["install", "-y"], installed),
+        Distro::FedoraAtomic => (
+            "rpm-ostree",
+            vec!["install", "--idempotent", "--allow-inactive"],
+            "Paquets ajoutés. Redémarrez l'ordinateur pour terminer l'installation.",
+        ),
+        Distro::Debian => ("apt-get", vec!["install", "-y"], installed),
+        Distro::Arch => ("pacman", vec!["-S", "--needed", "--noconfirm"], installed),
+        Distro::SteamOs | Distro::Unknown => {
+            return Err("Installation automatique impossible sur ce système : \
+                        utilisez le script install.sh fourni avec NetFolders."
+                .into())
+        }
+    };
+    let out = Command::new(cmd)
+        .args(args)
         .args(packages)
+        .env("DEBIAN_FRONTEND", "noninteractive")
         .output()
-        .map_err(|e| format!("Impossible de lancer dnf : {e}"))?;
+        .map_err(|e| format!("Impossible de lancer {cmd} : {e}"))?;
     if out.status.success() {
-        Ok("Paquets installés.".into())
+        Ok(done.into())
     } else {
         Err(format!("L'installation a échoué :\n{}", String::from_utf8_lossy(&out.stderr).trim()))
     }
