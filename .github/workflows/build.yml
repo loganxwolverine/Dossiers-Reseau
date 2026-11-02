@@ -69,7 +69,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: netfolders-arch
-          path: packaging/arch/*.pkg.tar.zst
+          # sans le paquet « -debug » généré automatiquement par makepkg
+          path: packaging/arch/netfolders-[0-9]*.pkg.tar.zst
 
   release:
     name: Publish release
