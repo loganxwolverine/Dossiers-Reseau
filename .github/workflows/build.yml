@@ -6,6 +6,9 @@ on:
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
+  # Version publiée depuis le site GitHub : compilation et ajout des fichiers.
+  release:
+    types: [published]
 
 permissions:
   contents: read
