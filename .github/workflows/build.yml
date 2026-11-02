@@ -96,4 +96,9 @@ jobs:
             || { echo "Le tag $GITHUB_REF_NAME ne correspond pas à la version de Cargo.toml"; exit 1; }
           # Notes de version : la section correspondante du CHANGELOG
           awk -v v="$VERSION" '/^## \[/ { p = index($0, "[" v "]") > 0; next } p' CHANGELOG.md > notes.md
-          gh release create "$GITHUB_REF_NAME" dist/* --title "NetFolders $VERSION" --notes-file notes.md
+          # La version a pu être créée à la main sur GitHub : on y ajoute alors les fichiers.
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* --title "NetFolders $VERSION" --notes-file notes.md
+          fi
